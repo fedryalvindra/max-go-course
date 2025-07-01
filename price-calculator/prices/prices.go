@@ -1,6 +1,7 @@
 package prices
 
 import (
+	"errors"
 	"fmt"
 	"price-calculator/conversion"
 	"price-calculator/iomanager"
@@ -30,11 +31,19 @@ func (job *TaxIncludedPriceJob) LoadData() error {
 	return nil
 }
 
-func (job *TaxIncludedPriceJob) Process() error {
+// remove error return because go routines doesnt return value(but we can still use return for other function call for example, there is code that call Process()) (but we can use channel instead)
+// func (job *TaxIncludedPriceJob) Process(doneChan chan bool) error {
+
+func (job *TaxIncludedPriceJob) Process(doneChan chan bool, errorChan chan error) {
 	err := job.LoadData()
 
+	errorChan <- errors.New("an error")
+
 	if err != nil {
-		return err
+		// return err
+		errorChan <- err
+		// return to cancel execution after error
+		return
 	}
 
 	result := make(map[string]string)
@@ -46,7 +55,9 @@ func (job *TaxIncludedPriceJob) Process() error {
 
 	job.TaxIncludedPrices = result
 
-	return job.IOManager.WriteResult(job)
+	job.IOManager.WriteResult(job)
+
+	doneChan <- true
 }
 
 func NewTaxIncludedPriceJob(iom iomanager.IOManager, taxRate float64) *TaxIncludedPriceJob {
